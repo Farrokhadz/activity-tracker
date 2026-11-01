@@ -15,7 +15,7 @@ category + duration, with an optional short note — not long-form text.
 
 | Layer | Technology | Notes |
 |---|---|---|
-| Frontend | React + TypeScript + Tailwind CSS v4 | React is prior skill; TypeScript and Tailwind are learning goals |
+| Frontend | React 19 + plain JavaScript (Vite) | Rebuilt from scratch; the earlier TypeScript + Tailwind scaffold was replaced by a plain JS React app |
 | Backend | Django + Django REST Framework (DRF) | Python is prior skill; Django/DRF is a learning goal |
 | Database | SQLite (local dev) → PostgreSQL (production) | SQLite chosen for now per YAGNI; swap is a one-line settings change since we use Django's ORM |
 | Frontend deploy | Vercel | Not yet configured |
@@ -29,7 +29,8 @@ activity-tracker/
 │   ├── config/          # Django project: settings, root urls
 │   ├── tracker/         # Django app: models, serializers, views, app-level urls
 │   └── manage.py
-├── frontend/             # React + TypeScript + Tailwind app (Vite)
+├── frontend/             # React (plain JavaScript) app, Vite
+│   └── src/              # App.jsx, main.jsx, App.css, index.css
 ├── AGENTS.md
 └── DESIGN.md
 ```
@@ -43,12 +44,15 @@ cd backend
 python3 -m venv venv
 # Windows: venv\Scripts\Activate.ps1
 # macOS/Linux: source venv/bin/activate
-pip install django djangorestframework
+pip install django djangorestframework django-cors-headers
 python manage.py migrate
 python manage.py runserver
 ```
 
 API base URL in development: `http://127.0.0.1:8000/api/`
+
+CORS: `django-cors-headers` is installed in `settings.py` and allows
+`http://localhost:5173` (the Vite dev server).
 
 ### Frontend
 
@@ -82,8 +86,8 @@ identify the smallest complete vertical slice, then order the sub-steps by depen
   `fields = '__all__'`.
 - **Foreign keys:** Default to `on_delete=models.PROTECT` unless there's a specific reason
   for `CASCADE` or `SET_NULL` — this project prioritizes not silently losing historical data.
-- **Frontend:** Style with Tailwind utility classes directly in JSX; no separate `.css` files
-  per component.
+- **Frontend:** Plain JavaScript (`.jsx`) with React function components and hooks. Tailwind
+  and TypeScript are no longer used; styling is done with plain CSS files.
 - **Commit messages:** Full, descriptive, plain English sentences (not Conventional Commits
   style prefixes like `feat:`/`fix:`). Keep them accurate to the actual diff.
 
@@ -92,17 +96,29 @@ identify the smallest complete vertical slice, then order the sub-steps by depen
 - ✅ Backend: `Category` and `Entry` models, migrations applied
 - ✅ Backend: `/api/entries/` endpoint (GET list, POST create), manually tested via DRF's
   Browsable API
-- ✅ Frontend: scaffolded (Vite + React + TypeScript + Tailwind v4), not yet connected to API
+- ✅ Backend: CORS configured for the Vite dev server (`http://localhost:5173`)
+- ✅ Frontend: rebuilt as a plain JavaScript React app with Vite (replaced the TypeScript +
+  Tailwind scaffold); `App.jsx` is still an empty shell and not yet connected to the API
+- 🔲 Backend: `/api/categories/` endpoint (list/create) — needed by the entry form, and
+  `Category` is not registered in `admin.py` yet
+- 🔲 Backend: update/delete for entries (`/api/entries/<id>/`)
+- 🔲 Backend: filtering entries by date/range and a default ordering (`-date`, `-id`) — needed
+  for the daily and weekly views
+- 🔲 Backend: validation hardening — minimum duration of 1 minute, and case-insensitive
+  uniqueness for category names
+- 🔲 Frontend: API base URL setup (env variable or Vite proxy) and a small fetch helper
 - 🔲 Frontend: fetch and display entries from `/api/entries/`
 - 🔲 Frontend: form to create a new entry
-- 🔲 CORS configuration (needed once frontend calls backend from a different port/origin)
-- 🔲 `/api/categories/` endpoint
 - 🔲 Weekly dashboard, quick-add buttons, streak counter (see `DESIGN.md` for full scope)
+- 🔲 Before external users / deployment: authentication and per-user data ownership
+  (`Entry` has no `user` field yet), move `SECRET_KEY` to an environment variable, set
+  `DEBUG=False` and a real `ALLOWED_HOSTS`, switch to PostgreSQL
+- 🔲 Automated tests (none yet; `tests.py` is empty)
 
 ## Testing Changes
 
 There is no automated test suite yet. Verify changes manually:
 - **Backend:** `python manage.py check`, then exercise the endpoint via DRF's Browsable API
   (`http://127.0.0.1:8000/api/entries/`) or Django's `django.test.Client` in a shell session.
-- **Frontend:** `npm run build` should complete without TypeScript errors; visually check
-  `npm run dev` in the browser.
+- **Frontend:** `npm run lint` and `npm run build` should complete without errors; visually
+  check `npm run dev` in the browser.

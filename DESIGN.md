@@ -13,8 +13,9 @@ app's goal is to make logging fast and make the weekly analysis fully automatic.
 
 1. **Product goal:** a tool the user actually uses daily, that makes weekly review faster
    and more accurate than the paper notebook it replaces.
-2. **Learning goal:** learn new tools (TypeScript, Tailwind, Django, DRF) while building,
-   not just apply existing knowledge.
+2. **Learning goal:** learn new tools (Django, DRF, and backend concepts in general) while
+   building, not just apply existing knowledge. (TypeScript and Tailwind were originally part
+   of this goal but were dropped — see "Frontend Decision" below.)
 3. **Branding goal:** document the build process (including real challenges, not just
    successes) and publish regularly on LinkedIn; keep the code on GitHub as a portfolio piece.
 4. **Long-term vision:** possible future multi-user product (not a current priority — it
@@ -49,7 +50,7 @@ app's goal is to make logging fast and make the weekly analysis fully automatic.
 | Field | Type | Notes |
 |---|---|---|
 | id | auto | primary key |
-| name | string | **unique** — prevents duplicate categories like "Gym" vs "gym" vs "gYm" |
+| name | string | **unique** — prevents exact duplicate categories. Note: Django's `unique=True` is case-sensitive, so "Gym" and "gym" are currently both allowed; a case-insensitive constraint (`UniqueConstraint(Lower('name'))`) is planned |
 | is_default | boolean | distinguishes system-provided defaults from user-created categories |
 
 ### Entry
@@ -58,7 +59,7 @@ app's goal is to make logging fast and make the weekly analysis fully automatic.
 | id | auto | primary key |
 | date | date | day of week is *computed* from this, never stored separately |
 | category | foreign key → Category | `on_delete=PROTECT` (see rationale below) |
-| duration | positive integer | minutes |
+| duration | positive integer | minutes. `PositiveIntegerField` currently accepts 0; a minimum of 1 (and a sensible maximum such as 1440) is planned |
 | note | text, optional | short context, not a journal field |
 
 **Why a separate `Category` table instead of a plain text field on `Entry`?**
@@ -119,7 +120,17 @@ Status codes follow REST convention deliberately (`200` for successful reads, `2
 successful creation, `400` for invalid input) so the frontend can branch on status rather
 than guessing from response content.
 
-Not yet built: `/api/categories/` (list/create categories).
+Not yet built:
+- `/api/categories/` (list/create categories) — needed by the entry form
+- `PATCH`/`DELETE /api/entries/<id>/` (fixing or removing a mistaken entry)
+- Filtering `GET /api/entries/` by date or date range (e.g. `?from=&to=`) and a default
+  ordering (`-date`, `-id`) — needed for the daily and weekly views
+- A weekly summary endpoint (or equivalent) for the dashboard. The start of the week
+  (e.g. Saturday vs Monday) needs to be decided first, since the totals depend on it.
+
+Current limitation: the data model has no `user` field and the API has no authentication,
+so all data is global. This is fine for single-user local development, but per-user data
+ownership and authentication must be added before real outside users or a public deployment.
 
 ## Database Choice: SQLite now, PostgreSQL later
 
@@ -128,6 +139,22 @@ deployment). SQLite is used for local development for now, following **YAGNI** �
 requires a running server process with no benefit during early single-developer local
 development. Because Django's ORM abstracts the database engine, switching to PostgreSQL
 later is a small change in `settings.py`, not a rewrite.
+
+Before any deployment, the settings also need to move from development defaults to
+production-safe ones: `SECRET_KEY` read from an environment variable (not committed in the
+repo), `DEBUG=False`, and a real `ALLOWED_HOSTS` instead of `["*"]`.
+
+## Frontend Decision: Plain JavaScript React (Vite)
+
+The original plan was React + TypeScript + Tailwind CSS v4, and an initial scaffold was
+created that way. It was later replaced with a new frontend built from scratch using Vite +
+React 19 in plain JavaScript, with plain CSS for styling. (Rationale for the change: not
+recorded yet — add it here.)
+
+The first frontend slice is built against what the backend already provides: the
+`/api/entries/` endpoint (plus `/api/categories/` once added), following the vertical-slice
+approach described below. It connects to the backend through an API base URL (env variable
+or Vite dev proxy); the backend already allows CORS from `http://localhost:5173`.
 
 ## Build Strategy: Vertical Slices over Horizontal Layers
 
