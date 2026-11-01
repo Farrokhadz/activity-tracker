@@ -148,3 +148,39 @@ class EntryDetailApiTests(TestCase):
         self.assertEqual(self.client.get(missing).status_code, 404)
         self.assertEqual(self.client.patch(missing, {'duration': 5}, format='json').status_code, 404)
         self.assertEqual(self.client.delete(missing).status_code, 404)
+
+
+class ValidationRulesTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.category = Category.objects.create(name='Programming')
+
+    def post_entry(self, duration):
+        return self.client.post(
+            '/api/entries/',
+            {'date': '2026-11-01', 'category': self.category.id, 'duration': duration},
+            format='json',
+        )
+
+    def test_duration_of_zero_is_rejected(self):
+        response = self.post_entry(0)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('duration', response.data)
+
+    def test_duration_above_one_day_is_rejected(self):
+        response = self.post_entry(1441)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('duration', response.data)
+
+    def test_duration_boundaries_are_accepted(self):
+        self.assertEqual(self.post_entry(1).status_code, 201)
+        self.assertEqual(self.post_entry(1440).status_code, 201)
+
+    def test_patch_cannot_set_an_invalid_duration(self):
+        entry = Entry.objects.create(date='2026-11-01', category=self.category, duration=30)
+
+        response = self.client.patch(f'/api/entries/{entry.id}/', {'duration': 0}, format='json')
+
+        self.assertEqual(response.status_code, 400)

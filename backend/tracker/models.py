@@ -1,3 +1,4 @@
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -16,7 +17,10 @@ class Entry(models.Model):
         on_delete=models.PROTECT,
         related_name='entries',
     )
-    duration = models.PositiveIntegerField(help_text="Duration in minutes")
+    duration = models.PositiveIntegerField(
+        help_text="Duration in minutes",
+        validators=[MinValueValidator(1), MaxValueValidator(1440)],
+    )
     note = models.TextField(blank=True)
 
     class Meta:
