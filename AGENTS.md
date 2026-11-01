@@ -99,25 +99,28 @@ identify the smallest complete vertical slice, then order the sub-steps by depen
 - ✅ Backend: CORS configured for the Vite dev server (`http://localhost:5173`)
 - ✅ Frontend: rebuilt as a plain JavaScript React app with Vite (replaced the TypeScript +
   Tailwind scaffold); `App.jsx` is still an empty shell and not yet connected to the API
-- 🔲 Backend: `/api/categories/` endpoint (list/create) — needed by the entry form, and
-  `Category` is not registered in `admin.py` yet
-- 🔲 Backend: update/delete for entries (`/api/entries/<id>/`)
-- 🔲 Backend: filtering entries by date/range and a default ordering (`-date`, `-id`) — needed
-  for the daily and weekly views
-- 🔲 Backend: validation hardening — minimum duration of 1 minute, and case-insensitive
-  uniqueness for category names
-- 🔲 Frontend: API base URL setup (env variable or Vite proxy) and a small fetch helper
+- ✅ Backend: `/api/categories/` endpoint (GET list sorted by name, POST create); `Category`
+  and `Entry` are registered in the Django admin
+- ✅ Backend: `/api/entries/` supports filtering (`?date=`, `?from=`, `?to=`, `?category=`) and
+  returns entries newest first (`-date`, `-id`)
+- ✅ Backend: `/api/entries/<id>/` (GET, PATCH, DELETE)
+- ✅ Backend: duration must be between 1 and 1440 minutes; category names are unique ignoring
+  case (database constraint plus a serializer check that returns a clean 400)
+- ✅ Backend: automated tests in `backend/tracker/tests.py` (run with `python manage.py test`)
+- ✅ Frontend: API base URL setup (Vite dev proxy for `/api`, `VITE_API_URL` for deployment)
+  and a fetch helper in `frontend/src/api.js`
 - 🔲 Frontend: fetch and display entries from `/api/entries/`
 - 🔲 Frontend: form to create a new entry
 - 🔲 Weekly dashboard, quick-add buttons, streak counter (see `DESIGN.md` for full scope)
 - 🔲 Before external users / deployment: authentication and per-user data ownership
   (`Entry` has no `user` field yet), move `SECRET_KEY` to an environment variable, set
   `DEBUG=False` and a real `ALLOWED_HOSTS`, switch to PostgreSQL
-- 🔲 Automated tests (none yet; `tests.py` is empty)
+- 🔲 Backend: a weekly summary endpoint for the dashboard (first decide the start of the week)
 
 ## Testing Changes
 
-There is no automated test suite yet. Verify changes manually:
+Backend tests exist in `backend/tracker/tests.py` and cover the categories and entries
+endpoints. Run them with `python manage.py test`. Also verify changes manually:
 - **Backend:** `python manage.py check`, then exercise the endpoint via DRF's Browsable API
   (`http://127.0.0.1:8000/api/entries/`) or Django's `django.test.Client` in a shell session.
 - **Frontend:** `npm run lint` and `npm run build` should complete without errors; visually
