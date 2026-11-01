@@ -184,3 +184,20 @@ class ValidationRulesTests(TestCase):
         response = self.client.patch(f'/api/entries/{entry.id}/', {'duration': 0}, format='json')
 
         self.assertEqual(response.status_code, 400)
+
+    def test_category_name_uniqueness_ignores_case(self):
+        Category.objects.create(name='Gym')
+
+        for name in ('gym', 'GYM', 'gYm'):
+            response = self.client.post('/api/categories/', {'name': name}, format='json')
+            self.assertEqual(response.status_code, 400, name)
+            self.assertIn('name', response.data)
+
+        self.assertEqual(Category.objects.filter(name__iexact='gym').count(), 1)
+
+    def test_different_category_names_are_still_allowed(self):
+        Category.objects.create(name='Gym')
+
+        response = self.client.post('/api/categories/', {'name': 'Gym Part 2'}, format='json')
+
+        self.assertEqual(response.status_code, 201)
