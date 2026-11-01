@@ -50,7 +50,7 @@ app's goal is to make logging fast and make the weekly analysis fully automatic.
 | Field | Type | Notes |
 |---|---|---|
 | id | auto | primary key |
-| name | string | **unique** — prevents exact duplicate categories. Note: Django's `unique=True` is case-sensitive, so "Gym" and "gym" are currently both allowed; a case-insensitive constraint (`UniqueConstraint(Lower('name'))`) is planned |
+| name | string | **unique ignoring case** — prevents duplicate categories like "Gym" vs "gym" vs "gYm" (database constraint on `Lower('name')`, plus a check in the serializer) |
 | is_default | boolean | distinguishes system-provided defaults from user-created categories |
 
 ### Entry
@@ -59,7 +59,7 @@ app's goal is to make logging fast and make the weekly analysis fully automatic.
 | id | auto | primary key |
 | date | date | day of week is *computed* from this, never stored separately |
 | category | foreign key → Category | `on_delete=PROTECT` (see rationale below) |
-| duration | positive integer | minutes. `PositiveIntegerField` currently accepts 0; a minimum of 1 (and a sensible maximum such as 1440) is planned |
+| duration | positive integer | minutes, validated to be between 1 and 1440 |
 | note | text, optional | short context, not a journal field |
 
 **Why a separate `Category` table instead of a plain text field on `Entry`?**
@@ -113,18 +113,24 @@ don't leak into API responses without a deliberate decision.
 
 | Method | URL | Behavior |
 |---|---|---|
-| GET | `/api/entries/` | List all entries |
+| GET | `/api/categories/` | List all categories, sorted by name |
+| POST | `/api/categories/` | Create a category (name must be unique ignoring case) |
+| GET | `/api/entries/` | List entries, newest first. Optional filters: `?date=`, `?from=`, `?to=` (YYYY-MM-DD, range is inclusive) and `?category=<id>`; invalid values return 400 |
 | POST | `/api/entries/` | Create a new entry (validates via `EntrySerializer`) |
+| GET | `/api/entries/<id>/` | Read a single entry (404 if missing) |
+| PATCH | `/api/entries/<id>/` | Partially update an entry |
+| DELETE | `/api/entries/<id>/` | Delete an entry (204 on success) |
 
 Status codes follow REST convention deliberately (`200` for successful reads, `201` for
-successful creation, `400` for invalid input) so the frontend can branch on status rather
-than guessing from response content.
+successful creation, `204` for successful deletion, `400` for invalid input, `404` for a
+missing entry) so the frontend can branch on status rather than guessing from response content.
+
+Validation: `duration` must be between 1 and 1440 minutes. Category names are unique ignoring
+case; this is enforced by a database constraint (`Lower('name')`) and also checked in
+`CategorySerializer`, because DRF does not enforce expression-based constraints itself and
+would otherwise turn a duplicate into a 500 error instead of a clean 400.
 
 Not yet built:
-- `/api/categories/` (list/create categories) — needed by the entry form
-- `PATCH`/`DELETE /api/entries/<id>/` (fixing or removing a mistaken entry)
-- Filtering `GET /api/entries/` by date or date range (e.g. `?from=&to=`) and a default
-  ordering (`-date`, `-id`) — needed for the daily and weekly views
 - A weekly summary endpoint (or equivalent) for the dashboard. The start of the week
   (e.g. Saturday vs Monday) needs to be decided first, since the totals depend on it.
 
