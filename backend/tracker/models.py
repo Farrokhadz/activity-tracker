@@ -19,5 +19,8 @@ class Entry(models.Model):
     duration = models.PositiveIntegerField(help_text="Duration in minutes")
     note = models.TextField(blank=True)
 
+    class Meta:
+        ordering = ['-date', '-id']
+
     def __str__(self):
         return f"{self.category.name} - {self.duration}min on {self.date}"
