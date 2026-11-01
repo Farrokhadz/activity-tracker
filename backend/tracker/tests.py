@@ -53,6 +53,45 @@ class EntryListApiTests(TestCase):
         first = Entry.objects.create(date='2026-11-01', category=self.reading, duration=10)
         second = Entry.objects.create(date='2026-11-01', category=self.reading, duration=20)
 
-        response = self.client.get('/api/entries/')
+        response = self.client.get('/api/entries/?date=2026-11-01')
 
-        self.assertEqual(self.ids(response)[:2], [second.id, first.id])
+        self.assertEqual(self.ids(response), [second.id, first.id])
+
+    def test_filter_by_single_date(self):
+        response = self.client.get('/api/entries/?date=2026-10-28')
+
+        self.assertEqual(self.ids(response), [self.mid.id])
+
+    def test_filter_by_date_range_is_inclusive(self):
+        response = self.client.get('/api/entries/?from=2026-10-28&to=2026-10-31')
+
+        self.assertEqual(self.ids(response), [self.new.id, self.mid.id])
+
+    def test_filter_by_category(self):
+        response = self.client.get(f'/api/entries/?category={self.programming.id}')
+
+        self.assertEqual(self.ids(response), [self.new.id, self.old.id])
+
+    def test_filters_can_be_combined(self):
+        response = self.client.get(
+            f'/api/entries/?from=2026-10-27&category={self.programming.id}'
+        )
+
+        self.assertEqual(self.ids(response), [self.new.id])
+
+    def test_malformed_date_returns_400(self):
+        response = self.client.get('/api/entries/?from=yesterday')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('from', response.data)
+
+    def test_impossible_date_returns_400(self):
+        response = self.client.get('/api/entries/?date=2026-02-31')
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_non_numeric_category_returns_400(self):
+        response = self.client.get('/api/entries/?category=abc')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('category', response.data)
