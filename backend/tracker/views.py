@@ -58,3 +58,35 @@ class EntryListCreateView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EntryDetailView(APIView):
+    def get_entry(self, pk):
+        try:
+            return Entry.objects.get(pk=pk)
+        except Entry.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        entry = self.get_entry(pk)
+        if entry is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        serializer = EntrySerializer(entry)
+        return Response(serializer.data)
+
+    def patch(self, request, pk):
+        entry = self.get_entry(pk)
+        if entry is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        serializer = EntrySerializer(entry, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        entry = self.get_entry(pk)
+        if entry is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        entry.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

@@ -95,3 +95,56 @@ class EntryListApiTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn('category', response.data)
+
+
+class EntryDetailApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.programming = Category.objects.create(name='Programming')
+        self.reading = Category.objects.create(name='Reading')
+        self.entry = Entry.objects.create(
+            date='2026-10-31', category=self.programming, duration=45, note='API work'
+        )
+        self.url = f'/api/entries/{self.entry.id}/'
+
+    def test_get_single_entry(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['duration'], 45)
+        self.assertEqual(response.data['note'], 'API work')
+
+    def test_patch_updates_only_the_given_fields(self):
+        response = self.client.patch(self.url, {'duration': 50}, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        self.entry.refresh_from_db()
+        self.assertEqual(self.entry.duration, 50)
+        self.assertEqual(self.entry.note, 'API work')
+        self.assertEqual(self.entry.category_id, self.programming.id)
+
+    def test_patch_can_change_category(self):
+        response = self.client.patch(self.url, {'category': self.reading.id}, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        self.entry.refresh_from_db()
+        self.assertEqual(self.entry.category_id, self.reading.id)
+
+    def test_patch_with_invalid_data_returns_400(self):
+        response = self.client.patch(self.url, {'date': 'not-a-date'}, format='json')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('date', response.data)
+
+    def test_delete_removes_the_entry(self):
+        response = self.client.delete(self.url)
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Entry.objects.filter(pk=self.entry.id).exists())
+
+    def test_missing_entry_returns_404_for_every_method(self):
+        missing = '/api/entries/99999/'
+
+        self.assertEqual(self.client.get(missing).status_code, 404)
+        self.assertEqual(self.client.patch(missing, {'duration': 5}, format='json').status_code, 404)
+        self.assertEqual(self.client.delete(missing).status_code, 404)
